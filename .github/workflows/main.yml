@@ -1,0 +1,56 @@
+name: build
+
+on: [push, workflow_dispatch, pull_request]
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: 6.6.*
+          arch: win64_msvc2019_64
+          cache: true
+          setup-python: false
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Get number of CPU cores
+        uses: SimenB/github-actions-cpu-cores@v1
+        id: cpu-cores
+
+      - name: Configure
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --config Release --parallel ${{ steps.cpu-cores.outputs.count }}
+
+      - name: Create deploy
+        run: |
+          windeployqt --no-translations --release build/Release/Enchilada.exe
+
+      - name: Collect artifacts
+        run: |
+          New-Item -Name "enchilada" -ItemType "directory"
+          Copy-Item "build/Release/Enchilada.exe" -Destination "enchilada"
+          Copy-Item "build/Release/Qt6Core.dll" -Destination "enchilada"
+          Copy-Item "build/Release/Qt6Gui.dll" -Destination "enchilada"
+          Copy-Item "build/Release/Qt6Widgets.dll" -Destination "enchilada"
+          Copy-Item "build/Release/Qt6Sql.dll" -Destination "enchilada"
+          New-Item -Path "enchilada" -Name "sqldrivers" -ItemType "directory"
+          Copy-Item "build/Release/sqldrivers/qsqlite.dll" -Destination "enchilada/sqldrivers"
+          New-Item -Path "enchilada" -Name "platforms" -ItemType "directory"
+          Copy-Item "build/Release/platforms/qwindows.dll" -Destination "enchilada/platforms"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: enchilada-w64
+          path: enchilada
+          compression-level: 9
