@@ -9,12 +9,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install SPIRV-Tools
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-use-cache: true
+          vulkan-query-version: latest
+          vulkan-components: "SPIRV-Tools"
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.6.*
           arch: win64_msvc2019_64
           cache: true
+          modules: qtshadertools
           setup-python: false
 
       - uses: lukka/get-cmake@latest
@@ -31,26 +39,28 @@ jobs:
         run: |
           cmake --build build --config Release --parallel ${{ steps.cpu-cores.outputs.count }}
 
-      - name: Create deploy
-        run: |
-          windeployqt --no-translations --release build/Release/Enchilada.exe
-
-      - name: Collect artifacts
-        run: |
-          New-Item -Name "enchilada" -ItemType "directory"
-          Copy-Item "build/Release/Enchilada.exe" -Destination "enchilada"
-          Copy-Item "build/Release/Qt6Core.dll" -Destination "enchilada"
-          Copy-Item "build/Release/Qt6Gui.dll" -Destination "enchilada"
-          Copy-Item "build/Release/Qt6Widgets.dll" -Destination "enchilada"
-          Copy-Item "build/Release/Qt6Sql.dll" -Destination "enchilada"
-          New-Item -Path "enchilada" -Name "sqldrivers" -ItemType "directory"
-          Copy-Item "build/Release/sqldrivers/qsqlite.dll" -Destination "enchilada/sqldrivers"
-          New-Item -Path "enchilada" -Name "platforms" -ItemType "directory"
-          Copy-Item "build/Release/platforms/qwindows.dll" -Destination "enchilada/platforms"
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: enchilada-w64
-          path: enchilada
-          compression-level: 9
+      # TODO: Needs to be updated after switching to QML UI
+      #
+      # - name: Create deploy
+      #   run: |
+      #     windeployqt --no-translations --release build/Release/Enchilada.exe
+      #
+      # - name: Collect artifacts
+      #   run: |
+      #     New-Item -Name "enchilada" -ItemType "directory"
+      #     Copy-Item "build/Release/Enchilada.exe" -Destination "enchilada"
+      #     Copy-Item "build/Release/Qt6Core.dll" -Destination "enchilada"
+      #     Copy-Item "build/Release/Qt6Gui.dll" -Destination "enchilada"
+      #     Copy-Item "build/Release/Qt6Widgets.dll" -Destination "enchilada"
+      #     Copy-Item "build/Release/Qt6Sql.dll" -Destination "enchilada"
+      #     New-Item -Path "enchilada" -Name "sqldrivers" -ItemType "directory"
+      #     Copy-Item "build/Release/sqldrivers/qsqlite.dll" -Destination "enchilada/sqldrivers"
+      #     New-Item -Path "enchilada" -Name "platforms" -ItemType "directory"
+      #     Copy-Item "build/Release/platforms/qwindows.dll" -Destination "enchilada/platforms"
+      #
+      # - name: Upload
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: enchilada-w64
+      #     path: enchilada
+      #     compression-level: 9
