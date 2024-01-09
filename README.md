@@ -8,7 +8,7 @@
  A texture browser for Quake 1 texture packs for the trend sensitive astute mapper.
 </p>
 
-<h3>Features</h3>
+### Features
 
 * [ ] Indexes all your textures for proper search
   * [ ] WAD (currently hardcoded lol)
@@ -26,5 +26,6 @@
   * [ ] WAD parent
 * [ ] Shopping list dropping textures into your own wad
 
-<h3>License</h3>
+### License
+
 MIT License, there is no second best.
