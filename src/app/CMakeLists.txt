@@ -1,11 +1,12 @@
 qt_add_executable(Enchilada
-        mainwindow.ui
-        mainwindow.cpp
-        mainwindow.h
         main.cpp
+        WadImageProvider.h
+        WadImageProvider.cpp
+        TextureItemModel.h
+        TextureItemModel.cpp
 )
 
-target_link_libraries(Enchilada PRIVATE wad Qt6::Gui Qt6::Widgets Qt6::Sql)
+target_link_libraries(Enchilada PRIVATE wad Qt6::Gui Qt6::Quick Qt6::QuickControls2)
 
 set_target_properties(Enchilada PROPERTIES
         WIN32_EXECUTABLE ON

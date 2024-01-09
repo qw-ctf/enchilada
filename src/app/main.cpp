@@ -1,12 +1,20 @@
-#include "mainwindow.h"
+#include <iostream>
 
-#include <QApplication>
-#include <QtSql/QSqlDatabase>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+//#include <QtSql/QSqlDatabase>
+#include <QSortFilterProxyModel>
+#include <QStandardItem>
+#include <QSGRendererInterface>
 
 #include <QFile>
 #include <QDataStream>
 #include <QDebug>
+#include <QQuickStyle>
 #include <wad.h>
+
+#include "TextureItemModel.h"
+#include "WadImageProvider.h"
 
 QVector<dmiptex_t> parseWadFile(const QString& filePath) {
     QVector<dmiptex_t> textures;
@@ -76,9 +84,15 @@ QVector<dmiptex_t> parseWadFile(const QString& filePath) {
                 in >> mip.offsets[i];
                 mip.offsets[i] += entry.offset;
             }
-            if (mip.name[0] == '\0') {
-                if (entry.name[0] == '\0') {
+            {
+            bool erase = false;
+            for (char &name : mip.name) {
+                if (name == '\0') {
+                    erase = true;
+                } else if (erase) {
+                    name = '\0';
                 }
+            }
             }
             if (mip.offsets[0] > 0 && mip.width > 0 && mip.height > 0) {
                 // qDebug() << "Texture width: " << mip.width << " height: " << mip.height;
@@ -100,26 +114,104 @@ QVector<dmiptex_t> parseWadFile(const QString& filePath) {
     return textures;
  }
 
+TextureItemModel::TextureType textureType(const char *name) {
+    switch (name[0]) {
+        case '+':
+            return TextureItemModel::Animated;
+        case '{':
+            return TextureItemModel::Fence;
+        case '*':
+            return TextureItemModel::Liquid;
+        default:
+            if (!strncmp(name, "sky", 3))
+                return TextureItemModel::Sky;
+            return TextureItemModel::Normal;
+    }
+}
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
-    MainWindow w;
 
+    //MainWindow w;
+
+
+    /*
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("mydatabase.db");
     db.close();
 
-    //auto textures = parseWadFile("C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad");
-    //w.loadTextures(textures, "C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad");
+    const auto start = std::chrono::high_resolution_clock::now();
+    const auto textures = parseWadFile("C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad");
+    const auto end = std::chrono::high_resolution_clock::now();
 
+    const std::chrono::duration<double, std::milli> duration = end - start;
+
+    qDebug() << "Function took " << duration.count() << " milliseconds.";
+    */
+
+    // w.loadTextures(textures, "C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad");
+
+    //const auto textures = parseWadFile("C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad");
     const auto textures = parseWadFile("C:/QuakeDev/wads/QUAKE101.WAD");
-    w.loadTextures(textures, "C:/QuakeDev/wads/QUAKE101.WAD");
+    //w.loadTextures(textures, "C:/QuakeDev/wads/QUAKE101.WAD");
 
     //const auto textures = parseWadFile("C:/QuakeDev/wads/STARFIELD.WAD");
     //w.loadTextures(textures, "C:/QuakeDev/wads/STARFIELD.WAD");
 
-    w.show();
+    //w.show();
 
-    return a.exec();
+    QGuiApplication app(argc, argv);
+
+    qmlRegisterUncreatableMetaObject(
+        TextureItemModel::staticMetaObject,
+        "enchilada.TextureItemModel",
+        1, 0,
+        "TextureItemModel",
+        "Error: only enums"
+    );
+
+    auto *model = new TextureItemModel();
+
+    for (auto &mip : textures) {
+        QString name = QString::fromLatin1(mip.name, qMin(std::strlen(mip.name), sizeof(mip.name)));
+        QUrl source;
+        QStringList frames;
+
+        if (mip.name[0] == '+') {
+            if (mip.name[1] != '0' || mip.name[2] == '\0') {
+                continue;
+            }
+            for (auto &f : textures) {
+                if (!qstrncmp(mip.name + 2, f.name + 2, sizeof(mip.name) - 2)) {
+                    frames.append(QString::number(f.offsets[0]));
+                }
+            }
+        }
+
+        QString fs = frames.join(",");
+
+        source = QString("image://wad/%1?o=%2&w=%3&h=%4&f=%5").arg(name).arg(mip.offsets[0]).arg(mip.width).arg(mip.height).arg(fs);
+
+        auto* item = new QStandardItem();
+        item->setText(name);
+        item->setData(textureType(mip.name), TextureItemModel::RoleNames::ImageTypeRole);
+        item->setData(source, TextureItemModel::RoleNames::ImageSourceRole);
+        model->appendRow(item);
+    }
+
+    auto proxyModel = new QSortFilterProxyModel(&app);
+    proxyModel->setSourceModel(model);
+    proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+
+    QQmlApplicationEngine engine;
+
+    engine.addImageProvider(QLatin1String("wad"), new WadImageProvider);
+
+    engine.setInitialProperties({
+        {"listViewModel", QVariant::fromValue(proxyModel) }
+    });
+    engine.load(QUrl(u"qrc:/qt/qml/enchilada/App.qml"_qs));
+
+
+    return app.exec();
 }
