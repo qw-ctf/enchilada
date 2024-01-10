@@ -15,9 +15,9 @@
   * [ ] BSP
   * [ ] WAD/BSP within ZIP files
 * [ ] Deduplication
-* [ ] Shader based rendering of special textures
+* [x] Shader based rendering of special textures
   * [x] Liquids
-  * [ ] Skies
+  * [x] Skies
   * [x] Animated
 * [ ] Filter by
   * [x] Name

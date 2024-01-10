@@ -8,12 +8,14 @@ ApplicationWindow {
 
     visible: true
     title: "The Big Enchilada"
-    minimumHeight: 600
-    minimumWidth: 800
+
+    width: 1060
+    height: 650
+
+    minimumWidth: 480
+    minimumHeight: 300
 
     property alias listViewModel : listView.model
-
-    Layout.alignment: Qt.AlignHCenter
 
     FilterForm {
         id: filterForm
@@ -38,81 +40,119 @@ ApplicationWindow {
             rightMargin: 10
         }
 
-        cellWidth: 142
+        cellWidth: 148
         cellHeight: 192
 
-        delegate: ColumnLayout {
-            Rectangle {
-                id: textureContainer
+        delegate: Item {
 
-                clip: true
-                width: 128
-                height: 128
-                color: "transparent"
+            ColumnLayout {
+                Rectangle {
+                    id: textureContainer
 
-                Layout.alignment: Qt.AlignHCenter | Qt.AlignBaseline
+                    clip: true
+                    width: 128
+                    height: 128
 
-                Image {
-                    id: textureImage
+                    color: "transparent"
 
-                    source: model.imageSource
-
-                    anchors.centerIn: model.imageType !== TextureItemModel.Animated ? parent : undefined
-
-                    ShaderEffect {
-                        width: textureContainer.width
-                        height: textureContainer.height
-
-                        visible: model.imageType == TextureItemModel.Liquid
-
-                        blending: false
-
-                        fragmentShader: "/shaders/texture_water.frag.qsb"
-
-                        property variant source: textureImage
-                        property real time: 0.0
-
-                        NumberAnimation on time {
-                            from: 0
-                            to: 4.0 * Math.PI / 3.0
-                            duration: 6000
-                            loops: Animation.Infinite
-                        }
+                    Image {
+                        id: textureImageClouds
+                        source: model.imageType == TextureItemModel.Sky ? model.imageSource + "&s=clouds" : ""
+                        visible: false
                     }
 
-                    ShaderEffect {
-                        id: anim
+                    Image {
+                        id: textureImage
+                        source: model.imageType == TextureItemModel.Sky ? model.imageSource + "&s=sky" : model.imageSource
+                        anchors.centerIn: model.imageType !== TextureItemModel.Animated ? parent : undefined
+                        visible: true
+                        fillMode: Image.Pad
 
-                        width: textureContainer.width
-                        height: textureContainer.height
+                        ShaderEffect {
+                            id: sky
 
-                        visible: model.imageType == TextureItemModel.Animated
+                            width: textureContainer.width
+                            height: textureContainer.height
 
-                        fragmentShader: "/shaders/texture_anim.frag.qsb"
+                            visible: model.imageType == TextureItemModel.Sky
 
-                        property variant source: textureImage
-                        property real singleFrameWidth: textureContainer.width / textureImage.width
-                        property real time: 0
+                            blending: true
+                            layer.smooth: true
 
-                        Timer {
-                            interval: 200; running: true; repeat: true
-                            onTriggered: anim.time += 1.0;
+                            fragmentShader: "/shaders/texture_sky.frag.qsb"
+
+                            property variant skyTexture: textureImage
+                            property variant cloudTexture: textureImageClouds
+                            property real time: 0.0
+
+                            NumberAnimation on time {
+                                from: 0
+                                to: 2.0
+                                duration: 60000
+                                loops: Animation.Infinite
+                            }
+                        }
+
+                        ShaderEffect {
+                            id: water
+
+                            width: textureContainer.width
+                            height: textureContainer.height
+
+                            visible: model.imageType == TextureItemModel.Liquid
+
+                            blending: false
+                            layer.smooth: false
+
+                            fragmentShader: "/shaders/texture_water.frag.qsb"
+
+                            property variant source: textureImage
+                            property real time: 0.0
+
+                            NumberAnimation on time {
+                                from: 0
+                                to: 4.0 * Math.PI / 3.0
+                                duration: 6000
+                                loops: Animation.Infinite
+                            }
+                        }
+
+                        ShaderEffect {
+                            id: anim
+
+                            width: textureContainer.width
+                            height: textureContainer.height
+
+                            visible: model.imageType == TextureItemModel.Animated
+
+                            blending: true
+                            layer.smooth: false
+
+                            fragmentShader: "/shaders/texture_anim.frag.qsb"
+
+                            property variant source: textureImage
+                            property real singleFrameWidth: textureContainer.width / textureImage.width
+                            property real time: 0
+
+                            Timer {
+                                interval: 300; running: true; repeat: true
+                                onTriggered: anim.time += 1.0;
+                            }
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                radius: 4.0
-                width: textItem.width + 6
-                height: textItem.height + 2
-                Layout.alignment: Qt.AlignHCenter | Qt.AlignBaseline
-                Text {
-                    id: textItem
-                    text: model.display
-                    horizontalAlignment: Text.AlignHCenter
-                    font.bold: true
+                Rectangle {
+                    radius: 4.0
+                    width: textItem.width + 6
+                    height: textItem.height + 2
                     Layout.alignment: Qt.AlignHCenter
+                    Text {
+                        id: textItem
+                        text: model.display
+                        horizontalAlignment: Text.AlignHCenter
+                        font.bold: true
+                    }
                 }
             }
         }

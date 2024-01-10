@@ -1,182 +1,178 @@
 #include "WadImageProvider.h"
-#include "WadImageProvider.h"
 
 #include <QPainter>
 #include <QFile>
-#include <QRegularExpression>
+#include <QUrlQuery>
 
 #include <wad.h>
 #include <palette.h>
 
-WadImageProvider::WadImageProvider()
-    : QQuickImageProvider(QQuickImageProvider::Image)
-{
-}
+WadImageProvider::WadImageProvider() : QQuickImageProvider(Image) { }
 
-QImage loadTexture(const QString& filePath, dmiptex_t mip) {
+QImage loadTexture(const QString& filePath, dmiptex_t mip, const QImage::Format format) {
+
     QFile file(filePath);
-    file.open(QIODevice::ReadOnly);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning("WARNING: Unable to open file");
+    }
 
     QDataStream in(&file);
 
-    bool erase = false;
-    for (char &name : mip.name) {
-        if (name == '\0') {
-            erase = true;
-        } else if (erase) {
-            name = '\0';
-        }
+    QVector<uint8_t> buffer;
+
+    switch (format) {
+        case QImage::Format_RGBA8888:
+        case QImage::Format_RGBA8888_Premultiplied:
+            buffer.resize(mip.width * mip.height * 4);
+            break;
+        default:
+            buffer.resize(mip.width * mip.height * 3);
+            break;
     }
-    QString name = QString::fromLatin1(mip.name, sizeof(mip.name));
 
-    QVector<uint8_t> buffer(mip.width * mip.height * 4);
+    buffer.fill(0);
 
-    file.seek(mip.offsets[0]);
+    if (!file.seek(mip.offsets[0])) {
+        qWarning("WARNING: Could not seek to offset!");
+    }
+
     for (int i = 0; i < mip.width * mip.height; i++) {
         uint8_t p;
 
         in >> p;
+        if (in.status() != QDataStream::Ok) {
+            qWarning("WARNING: Read failed at position %d", i);
+            break;
+        }
+
         if (!(p == 255 && mip.name[0] == '{')) {
-            buffer[i * 4] = PALETTE[p * 3];
-            buffer[i * 4 + 1] = PALETTE[p * 3 + 1];
-            buffer[i * 4 + 2] = PALETTE[p * 3 + 2];
-            buffer[i * 4 + 3] = 255;
+            switch (format) {
+                case QImage::Format_RGBA8888:
+                case QImage::Format_RGBA8888_Premultiplied:
+                    buffer[i * 4] = PALETTE[p * 3];
+                    buffer[i * 4 + 1] = PALETTE[p * 3 + 1];
+                    buffer[i * 4 + 2] = PALETTE[p * 3 + 2];
+                    buffer[i * 4 + 3] = 255;
+                    break;
+                default:
+                    buffer[i * 3] = PALETTE[p * 3];
+                    buffer[i * 3 + 1] = PALETTE[p * 3 + 1];
+                    buffer[i * 3 + 2] = PALETTE[p * 3 + 2];
+                    break;
+            }
         }
     }
 
-    QImage image(buffer.data(), mip.width, mip.height, QImage::Format_RGBA8888);
+    const QImage texture(buffer.data(), static_cast<int>(mip.width), static_cast<int>(mip.height), format);
+    QImage owned(static_cast<int>(mip.width), static_cast<int>(mip.height), format);
 
-    if (name.startsWith("sky")) {
-        QImage lowerSky = image.copy(0, 0, 128, 128);
-        QImage upperSky = image.copy(128, 0, 128, 128);
+    QPainter painter(&owned);
+    painter.drawImage(0, 0, texture);
+    painter.end();
 
-        for (int y = 0; y < lowerSky.height(); ++y) {
-            for (int x = 0; x < lowerSky.width(); ++x) {
-                if (lowerSky.pixelColor(x, y) == Qt::black) {
-                    lowerSky.setPixelColor(x, y, QColor(0, 0, 0, 0));
+    return owned;
+}
+
+QImage WadImageProvider::requestImage(const QString& id, QSize* size, const QSize& requestedSize) {
+    const QUrl decoded = QUrl::fromPercentEncoding(id.toLatin1());
+
+    auto query = QUrlQuery(decoded);
+    query.setQueryDelimiters('?', '&');
+
+    const auto bounds = QSize{
+        requestedSize.width() <= 0 ? 128 : requestedSize.width(),
+        requestedSize.height() <= 0 ? 128 : requestedSize.height()
+    };
+
+    const auto offsetsStr = query.queryItemValue("o").split(',');
+
+    if (offsetsStr.isEmpty() || offsetsStr.first().isEmpty() || !(query.hasQueryItem("w") && query.hasQueryItem("h"))) {
+        QImage image(bounds, QImage::Format_RGBA8888_Premultiplied);
+        image.fill(Qt::blue);
+
+        size->setWidth(image.width());
+        size->setHeight(image.height());
+
+        return image;
+    }
+
+    dmiptex_t mip = {};
+
+    const auto nameBuffer = decoded.path().toLatin1();
+    std::memcpy(mip.name, nameBuffer.constData(), qMin(nameBuffer.size(), 15));
+
+    mip.offsets[0] = offsetsStr.first().toInt();
+    mip.width = query.queryItemValue("w").toInt();
+    mip.height = query.queryItemValue("h").toInt();
+
+    if (query.hasQueryItem("s")) {
+        auto texture = loadTexture(TEST_WAD, mip, QImage::Format_RGBA8888);
+
+        // Make black pixels in cloud part of the sky transparent
+        for (int x = 0; x < 128; ++x) {
+            for (int y = 0; y < 128; ++y) {
+                if (texture.pixelColor(x, y) == Qt::black) {
+                    QColor skyColor = texture.pixelColor(x + 128, y);
+                    skyColor.setAlpha(0);
+                    texture.setPixelColor(x, y, skyColor);
                 }
             }
         }
 
-        QImage upperSkyTiled(256, 256, QImage::Format_RGBA8888);
+        QImage sky(bounds, QImage::Format_RGBA8888);
+        sky.fill(Qt::transparent);
 
-        QPainter painter(&upperSkyTiled);
-        for (int y = 0; y < 2; ++y) {
-            for (int x = 0; x < 2; ++x) {
-                painter.drawImage(x * 128, y * 128, upperSky);
-            }
+        QPainter painter(&sky);
+        if (query.queryItemValue("s") == "clouds") {
+            painter.drawImage(0, 0, texture, 0, 0, 128, 128);
+        } else {
+            painter.drawImage(0, 0, texture, 128, 0, 128, 128);
         }
+        painter.end();
 
-        QImage upperSkyScaled = upperSkyTiled.scaled(upperSkyTiled.width() / 2, upperSkyTiled.height() / 2);
+        size->setWidth(bounds.width());
+        size->setHeight(bounds.height());
 
-        QPainter finalPainter(&upperSkyScaled);
-        finalPainter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-        finalPainter.drawImage(0, 0, lowerSky);
-        finalPainter.end();
-
-        return upperSkyScaled;
+        return sky;
     }
 
-    return image.scaled(QSize(128, 128), Qt::KeepAspectRatio, Qt::FastTransformation);
-}
+    if (offsetsStr.size() > 1) {
+        QVector<int> offsets;
 
-QImage appendHorizontally(const int width, const QImage& a, const QImage& b) {
-    // The dimensions of the new image
-    int widthA = a.width();
-    int heightA = a.height();
-    int newWidth = widthA + width;
-    int newHeight = heightA;
+        std::transform(offsetsStr.begin(), offsetsStr.end(), std::back_inserter(offsets),
+                       [](const QString& frame) { return frame.toInt(); });
 
-    // Create a new image with the calculated dimensions
-    QImage result(newWidth, newHeight, QImage::Format_ARGB32);
-    result.fill(Qt::transparent);
+        QImage anim(bounds.width() * offsets.size(), bounds.height(), QImage::Format_RGBA8888_Premultiplied);
+        anim.fill(Qt::transparent);
 
-    QPainter painter(&result);
+        const auto firstFrame = loadTexture(TEST_WAD, mip, QImage::Format_RGBA8888_Premultiplied)
+                .scaled(bounds, Qt::KeepAspectRatio, Qt::FastTransformation);
 
-    // Draw image A at position (0, 0)
-    painter.drawImage(0, 0, a);
+        const auto xOffset = (bounds.width() - firstFrame.width()) / 2;
+        const auto yOffset = (bounds.height() - firstFrame.height()) / 2;
 
-    // Scale image B if necessary
-    QImage scaledB = b;
-    if (b.width() != width || b.height() != heightA) {
-        scaledB = b.scaled(width, heightA, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    }
+        QPainter painter(&anim);
+        painter.drawImage(xOffset, yOffset, firstFrame);
 
-    // Calculate position to draw scaledB
-    int xPos = widthA + width / 2 - b.width() / 2; // Start drawing at the width of image A
-    int yPos = (heightA - scaledB.height()) / 2; // Center image B vertically
-
-    // Draw image B
-    painter.drawImage(xPos, yPos, scaledB);
-
-    painter.end();
-
-    return result;
-}
-
-QImage WadImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
-{
-    auto decoded = QUrl::fromPercentEncoding(id.toLatin1());
-    QRegularExpression re(R"(([^?]+)[?]o=(\d+)[&]w=(\d+)[&]h=(\d+)[&]f=(.*))");
-    QRegularExpressionMatch match = re.match(decoded);
-
-    if (match.hasMatch()) {
-        QString name = match.captured(1);
-        QString firstNumber = match.captured(2);
-        QString secondNumber = match.captured(3);
-        QString thirdNumber = match.captured(4);
-        QString frames = match.captured(5);
-
-        QByteArray byteArray = name.toUtf8();
-        int nameSize = qMin(byteArray.size(), 15);
-
-        dmiptex_t mip;
-        std::memcpy(mip.name, byteArray.constData(), nameSize);
-        mip.name[nameSize] = '\0';
-
-        mip.offsets[0] = firstNumber.toInt();
-        mip.width = secondNumber.toInt();
-        mip.height = thirdNumber.toInt();
-
-        //QImae texture = loadTexture("C:/QuakeDev/wads/makkon_industrial/makkon_industrial.wad", mip);
-        QImage texture = loadTexture("C:/QuakeDev/wads/QUAKE101.WAD", mip);
-
-        if (!frames.isEmpty()) {
-            qDebug() << frames.size() << " " << frames;
-            QImage base(128, 128, QImage::Format_RGBA8888);
-            base.fill(Qt::transparent);
-
-            QPainter painter(&base);
-            int x = (base.width() - texture.width()) / 2;
-            int y = (base.height() - texture.height()) / 2;
-
-            // Draw the original image centered on the new image
-            painter.drawImage(x, y, texture);
-            painter.end();
-
-            texture = base;
+        for (int i = 0; i < offsets.size(); i++) {
+            mip.offsets[0] = offsets[i];
+            const auto nextFrame = loadTexture(TEST_WAD, mip, QImage::Format_RGBA8888_Premultiplied)
+                    .scaled(bounds, Qt::KeepAspectRatio, Qt::FastTransformation);
+            painter.drawImage(i * bounds.width() + xOffset, yOffset, nextFrame);
         }
 
-        for (auto offset : frames.split(",")) {
-            if (offset.isEmpty())
-                continue;
-            mip.offsets[0] = offset.toInt();
-            QImage nextFrame = loadTexture("C:/QuakeDev/wads/QUAKE101.WAD", mip);
+        painter.end();
 
-            texture = appendHorizontally(128, texture, nextFrame);
-        }
+        size->setWidth(anim.width());
+        size->setHeight(anim.height());
 
-        size->setWidth(texture.width());
-        size->setHeight(texture.height());
-
-        return texture;
+        return anim;
     }
 
-    QImage image(128, 128, QImage::Format_RGBA8888);
-    image.fill(Qt::blue);
+    const auto texture = loadTexture(TEST_WAD, mip, mip.name[0] == '{' ? QImage::Format_RGBA8888 : QImage::Format_RGB888)
+            .scaled(bounds, Qt::KeepAspectRatio, Qt::FastTransformation);
+    size->setWidth(texture.width());
+    size->setHeight(texture.height());
 
-    size->setWidth(image.width());
-    size->setHeight(image.height());
-
-    return image;
+    return texture;
 }

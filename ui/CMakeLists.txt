@@ -19,5 +19,5 @@ qt6_add_shaders(Enchilada shaders
         PRECOMPILE
         OPTIMIZED
         PREFIX "/shaders"
-        FILES "texture_water.frag" "texture_anim.frag"
+        FILES "texture_water.frag" "texture_anim.frag" "texture_sky.frag"
 )
