@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import enchilada.TextureItemModel
 
 GridLayout {
     rows: 2
@@ -10,6 +11,7 @@ GridLayout {
     rowSpacing: 10
 
     signal searchTextChanged(string text)
+    signal searchTypeChanged(int value)
 
     TextField {
         id: searchbar
@@ -33,5 +35,38 @@ GridLayout {
     ComboBox {
         id: filter3
         Layout.fillWidth: true
+
+        onCurrentIndexChanged: function() {
+            searchTypeChanged(model.get(currentIndex)["value"])
+        }
+
+        model: ListModel {
+            ListElement {
+                text: "Any Type"
+                value: -1
+            }
+            ListElement {
+                text: "Normal"
+                value: TextureItemModel.Normal
+            }
+            ListElement {
+                text: "Liquid"
+                value: TextureItemModel.Liquid
+            }
+            ListElement {
+                text: "Sky"
+                value: TextureItemModel.Sky
+            }
+            ListElement {
+                text: "Fence"
+                value: TextureItemModel.Fence
+            }
+            ListElement {
+                text: "Animated"
+                value: TextureItemModel.Animated
+            }
+        }
+
+        textRole: "text"
     }
 }

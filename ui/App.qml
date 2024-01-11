@@ -22,7 +22,10 @@ ApplicationWindow {
         width: parent.width
 
         onSearchTextChanged: function(newText) {
-            listView.model.setFilterWildcard(newText)
+            listViewModel.searchByName = newText
+        }
+        onSearchTypeChanged: function(newType) {
+            listViewModel.searchByType = newType
         }
     }
 

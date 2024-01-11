@@ -14,6 +14,7 @@ public:
         Animated,
         Liquid,
         Sky,
+        End,
     };
     Q_ENUM(TextureType)
 

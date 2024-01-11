@@ -11,6 +11,7 @@
 
 #include <wad.h>
 
+#include "FilterProxyModel.h"
 #include "TextureItemModel.h"
 #include "WadImageProvider.h"
 
@@ -177,7 +178,7 @@ int main(int argc, char* argv[]) {
         model->appendRow(item);
     }
 
-    const auto proxyModel = new QSortFilterProxyModel(&app);
+    const auto proxyModel = new FilterProxyModel(&app);
     proxyModel->setSourceModel(model);
     proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
