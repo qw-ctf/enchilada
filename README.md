@@ -22,7 +22,7 @@
 * [ ] Filter by
   * [x] Name
   * [ ] Primary color
-  * [ ] Texture type (normal liquid, sky, animated, fence)
+  * [x] Texture type (normal liquid, sky, animated, fence)
   * [ ] WAD parent
 * [ ] Shopping list dropping textures into your own wad
 
