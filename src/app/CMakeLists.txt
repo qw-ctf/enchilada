@@ -1,4 +1,4 @@
-qt_add_executable(Enchilada
+qt6_add_executable(Enchilada
         main.cpp
         WadImageProvider.h
         WadImageProvider.cpp

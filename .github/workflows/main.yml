@@ -3,6 +3,38 @@ name: build
 on: [push, workflow_dispatch, pull_request]
 
 jobs:
+  linux-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            spirv-tools
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: 6.6.*
+          host: linux
+          arch: gcc_64
+          modules: qtshadertools
+          setup-python: false
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --config Release --parallel
+
   windows-build:
     runs-on: windows-latest
 
