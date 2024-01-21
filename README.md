@@ -5,16 +5,18 @@
  </p>
 </h2>
 <p align="center">
- A texture browser for Quake 1 texture packs for the trend sensitive astute mapper.
+ A texture browser for Quake 1 texture packs for the trend sensitive mapper.
 </p>
 
 ### Features
 
-* [ ] Indexes all your textures for proper search
-  * [ ] WAD (currently hardcoded lol)
+* [x] Indexes all your textures for proper search
+  * [x] WAD
   * [ ] BSP
   * [ ] WAD/BSP within ZIP files
-* [ ] Deduplication
+  * [ ] Via background workers
+  * [ ] On file changes
+* [x] Deduplication
 * [x] Shader based rendering of special textures
   * [x] Liquids
   * [x] Skies

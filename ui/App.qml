@@ -60,16 +60,21 @@ ApplicationWindow {
 
                     Image {
                         id: textureImageClouds
-                        source: model.imageType == TextureItemModel.Sky ? model.imageSource + "&s=clouds" : ""
+                        source: model.category == TextureItemModel.Sky ? "image://wad/" + model.texture_id + "?s=clouds" : ""
                         visible: false
+                        fillMode: Image.PreserveAspectFit
+                        width: textureContainer.width
+                        height: textureContainer.height
                     }
 
                     Image {
                         id: textureImage
-                        source: model.imageType == TextureItemModel.Sky ? model.imageSource + "&s=sky" : model.imageSource
-                        anchors.centerIn: model.imageType !== TextureItemModel.Animated ? parent : undefined
+                        source: "image://wad/" + model.texture_id + (model.category == TextureItemModel.Sky ? "?s=sky" : "")
+                        anchors.centerIn: model.category !== TextureItemModel.Animated ? parent : undefined
                         visible: true
-                        fillMode: Image.Pad
+                        fillMode: model.category !== TextureItemModel.Animated ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+                        width: textureContainer.width
+                        height: textureContainer.height
 
                         ShaderEffect {
                             id: sky
@@ -77,7 +82,7 @@ ApplicationWindow {
                             width: textureContainer.width
                             height: textureContainer.height
 
-                            visible: model.imageType == TextureItemModel.Sky
+                            visible: model.category == TextureItemModel.Sky
 
                             blending: true
                             layer.smooth: true
@@ -102,7 +107,7 @@ ApplicationWindow {
                             width: textureContainer.width
                             height: textureContainer.height
 
-                            visible: model.imageType == TextureItemModel.Liquid
+                            visible: model.category == TextureItemModel.Liquid
 
                             blending: false
                             layer.smooth: false
@@ -126,7 +131,7 @@ ApplicationWindow {
                             width: textureContainer.width
                             height: textureContainer.height
 
-                            visible: model.imageType == TextureItemModel.Animated
+                            visible: model.category == TextureItemModel.Animated
 
                             blending: true
                             layer.smooth: false
@@ -152,7 +157,7 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignHCenter
                     Text {
                         id: textItem
-                        text: model.display
+                        text: model.name
                         horizontalAlignment: Text.AlignHCenter
                         font.bold: true
                     }
