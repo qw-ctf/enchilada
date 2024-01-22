@@ -58,6 +58,17 @@ ApplicationWindow {
 
                     color: "transparent"
 
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            previewImage.source = textureImage.source;
+                            previewImage.scale = 4.0;
+                            previewFlickable.contentX = 0;
+                            previewFlickable.contentY = 0;
+                            previewPopup.open();
+                        }
+                    }
+
                     Image {
                         id: textureImageClouds
                         source: model.category == TextureItemModel.Sky ? "image://wad/" + model.texture_id + "?s=clouds" : ""
@@ -65,6 +76,9 @@ ApplicationWindow {
                         fillMode: Image.PreserveAspectFit
                         width: textureContainer.width
                         height: textureContainer.height
+                        sourceSize.width: 64
+                        sourceSize.height: 64
+                        smooth: false
                     }
 
                     Image {
@@ -75,6 +89,9 @@ ApplicationWindow {
                         fillMode: model.category !== TextureItemModel.Animated ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                         width: textureContainer.width
                         height: textureContainer.height
+                        sourceSize.width: 64
+                        sourceSize.height: 64
+                        smooth: false
 
                         ShaderEffect {
                             id: sky
@@ -169,4 +186,57 @@ ApplicationWindow {
             active: parent.moving || !parent.moving
         }
     }
+
+    Popup {
+        id: previewPopup
+        visible: false
+        width: window.width
+        height: window.height
+
+        onOpened: function() {
+            previewPopup.forceActiveFocus(Qt.MouseFocusReason);
+        }
+
+        Flickable {
+            id: previewFlickable
+
+            width: window.width
+            height: window.height
+
+            contentWidth: window.width * 4
+            contentHeight: window.height * 4
+
+            Image {
+                id: previewImage
+                source: ""
+                fillMode: Image.Tile
+                width: window.width * 3
+                height: window.height * 3
+                smooth: false
+
+                PinchHandler {
+                    minimumRotation: 0
+                    maximumRotation: 0
+
+                    onScaleChanged: function() {
+                        previewImage.scale = Math.max(1.0, Math.min(previewImage.scale, 32.0));
+                    }
+                }
+            }
+
+            ShaderEffectSource {
+                sourceItem: previewImage
+                wrapMode: ShaderEffectSource.Repeat
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                propagateComposedEvents: true
+                onClicked: function(event) {
+                    previewPopup.close();
+                }
+            }
+        }
+    }
 }
+

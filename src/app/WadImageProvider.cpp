@@ -90,12 +90,15 @@ QImage WadImageProvider::requestImage(const QString& id, QSize* size, const QSiz
 	}
 	query.next();
 
+
 	const QString fileName = query.value(0).toString();
 	const auto imageType = query.value(4).toInt();
+	const auto width = query.value(2).toInt();
+	const auto height = query.value(3).toInt();
 
 	const auto bounds = QSize{
-        requestedSize.width() <= 0 ? 128 : requestedSize.width(),
-        requestedSize.height() <= 0 ? 128 : requestedSize.height()
+        requestedSize.width() <= 0 ? width : requestedSize.width(),
+        requestedSize.height() <= 0 ? height : requestedSize.height()
     };
 
 	QStringList offsetsStr;
@@ -112,8 +115,8 @@ QImage WadImageProvider::requestImage(const QString& id, QSize* size, const QSiz
     dmiptex_t mip = {};
 
     mip.offsets[0] = query.value(1).toInt();
-    mip.width = query.value(2).toInt();
-    mip.height = query.value(3).toInt();
+    mip.width = width;
+    mip.height = height;
 
     if (urlQuery.hasQueryItem("s")) {
         auto texture = loadTexture(fileName, mip, QImage::Format_RGBA8888);
